@@ -21,10 +21,9 @@ class Order {
 class Bucket {
 public:
 	int local_depth;
-	std::string filename;
 	std::vector<int> records;
 
-	Bucket(int depth, std::string filename) : local_depth(depth), filename(filename) {}
+	Bucket(int depth) : local_depth(depth) {}
 
 	bool isFull() {
 		return records.size() >= 3;  // Capacidade máxima do bucket é 3
@@ -32,6 +31,24 @@ public:
 
 	bool isEmpty() {
 		return records.empty();
+	}
+	// Método para salvar o bucket em um arquivo
+	void save(int index) const {
+		// Constrói o nome do arquivo com o índice do bucket
+		std::string filename = HASH_DIR + "/" + std::to_string(index) + ".bucket";
+		std::ofstream out_file(filename);
+
+		if (!out_file.is_open()) {
+			std::cerr << "Não foi possível abrir o arquivo para escrita: " << filename << std::endl;
+			return;
+		}
+
+		// Escreve cada registro no arquivo do bucket
+		for (const int& key : records) {
+			// A chave é o único valor que estamos salvando neste exemplo.
+			// Se você tiver outros dados associados a cada chave, eles também devem ser salvos aqui.
+			out_file << key << std::endl;
+		}
 	}
 };
 
@@ -61,7 +78,7 @@ private:
 			doubleDirectory();
 		}
 		std::vector<int> temp_records = old_bucket->records;
-		Bucket* new_bucket = new Bucket(old_depth + 1, HASH_DIR + "\\" + std::to_string(bucket_index) + ".bucket");
+		Bucket* new_bucket = new Bucket(old_depth + 1);
 		old_bucket->local_depth++;
 
 		old_bucket->records.clear();
@@ -100,7 +117,7 @@ public:
 	ExtensibleHash(int depth) : global_depth(depth) {
 		int initial_buckets = 1 << depth;
 		for (int i = 0; i < initial_buckets; i++) {
-			directory.push_back(new Bucket(depth, HASH_DIR + "\\" + std::to_string(i) + ".bucket"));
+			directory.push_back(new Bucket(depth));
 		}
 	}
 
@@ -114,6 +131,7 @@ public:
 		else {
 			bucket->records.push_back(key);
 		}
+		directory[bucket_index]->save(bucket_index);
 	}
 
 	void remove(int key) {
@@ -125,6 +143,7 @@ public:
 				return;
 			}
 		}
+		directory[bucket_index]->save(bucket_index);
 	}
 
 	void search(int key) {
