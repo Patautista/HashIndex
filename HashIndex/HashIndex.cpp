@@ -4,24 +4,53 @@
 #include <fstream>
 #include <sstream>
 #include <filesystem>
+#include <iomanip>
+
 namespace fs = std::filesystem;
 
 const std::string IN_PATH = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\in.txt";
 const std::string HASH_DIR = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\hash_dir";
+const std::string CSV_PATH = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\compras.csv";
 
 class Order {
 	public:
-		Order(int id, double value) : value(value), year(year) {}
 		int id;
 		double value;
 		int year;
+
+		Order(double value, int year) : value(value), year(year) {}
+		Order(int id, double value, int year) : id(id), value(value), year(year) {}
 };
+
+Order findOrderByYear(int target_year) {
+	std::ifstream file(CSV_PATH);
+	std::string line;
+	while (std::getline(file, line)) {
+		std::istringstream iss(line);
+		std::string id_str, value_str, year_str;
+
+		// Supondo que o CSV não tem cabeçalhos e é separado por vírgulas
+		std::getline(iss, id_str, ';');
+		std::getline(iss, value_str, ';');
+		std::getline(iss, year_str, ';');
+
+		int id = std::stoi(id_str);
+		double value = std::stod(value_str);
+		int year = std::stoi(year_str);
+
+		if (year == target_year) {
+			return Order(id, value, year);
+		}
+	}
+
+	return Order(0,0); // Retorna um optional vazio se nenhum registro for encontrado
+}
 
 // Classe que representa um bucket
 class Bucket {
 public:
 	int local_depth;
-	std::vector<int> records;
+	std::vector<Order> records;
 
 	Bucket(int depth) : local_depth(depth) {}
 
@@ -36,7 +65,7 @@ public:
 	void save(int index) const {
 		// Constrói o nome do arquivo com o índice do bucket
 		std::string filename = HASH_DIR + "/" + std::to_string(index) + ".bucket";
-		std::ofstream out_file(filename);
+		std::ofstream out_file(filename, std::ofstream::trunc);
 
 		if (!out_file.is_open()) {
 			std::cerr << "Não foi possível abrir o arquivo para escrita: " << filename << std::endl;
@@ -44,11 +73,12 @@ public:
 		}
 
 		// Escreve cada registro no arquivo do bucket
-		for (const int& key : records) {
-			// A chave é o único valor que estamos salvando neste exemplo.
-			// Se você tiver outros dados associados a cada chave, eles também devem ser salvos aqui.
-			out_file << key << std::endl;
-		}
+		out_file << std::fixed << std::setprecision(2);
+
+        // Escreve cada registro no arquivo do bucket
+        for (const Order& order : records) {
+            out_file << order.id << " " << order.value << " " << order.year << std::endl;
+        }
 	}
 };
 
@@ -77,15 +107,26 @@ private:
 		if (old_depth == global_depth) {
 			doubleDirectory();
 		}
-		std::vector<int> temp_records = old_bucket->records;
-		Bucket* new_bucket = new Bucket(old_depth + 1);
 		old_bucket->local_depth++;
+		Bucket* new_bucket = new Bucket(old_bucket->local_depth);
 
+		int mask = 1 << old_depth;
+		for (int i = 0; i < directory.size(); ++i) {
+			if ((i & mask) == mask && directory[i] == old_bucket) {
+				directory[i] = new_bucket;
+			}
+		}
+
+		std::vector<Order> temp_records = std::move(old_bucket->records);
 		old_bucket->records.clear();
 
-		for (int num : temp_records) {
-			int new_index = hash(num);
-			directory[new_index]->records.push_back(num);
+		for (const Order& order : temp_records) {
+			if (hash(order.id) == bucket_index) {
+				old_bucket->records.push_back(order);
+			}
+			else {
+				new_bucket->records.push_back(order);
+			}
 		}
 	}
 
@@ -129,7 +170,11 @@ public:
 			insert(key);  // Reinsert the key
 		}
 		else {
-			bucket->records.push_back(key);
+			// Buscar no .csv
+			auto order = findOrderByYear(key);
+			if (order.year != 0) {
+				bucket->records.push_back(order);
+			}
 		}
 		directory[bucket_index]->save(bucket_index);
 	}
@@ -138,7 +183,7 @@ public:
 		int bucket_index = hash(key);
 		auto& records = directory[bucket_index]->records;
 		for (auto it = records.begin(); it != records.end(); it++) {
-			if (*it == key) {
+			if ((*it).year == key) {
 				records.erase(it);
 				return;
 			}
@@ -149,8 +194,8 @@ public:
 	void search(int key) {
 		int bucket_index = hash(key);
 		Bucket* bucket = directory[bucket_index];
-		for (int num : bucket->records) {
-			if (num == key) {
+		for (auto order : bucket->records) {
+			if (order.year == key) {
 				std::cout << "Key " << key << " found in bucket " << bucket_index << "\n";
 				return;
 			}
