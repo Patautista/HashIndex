@@ -66,19 +66,19 @@ public:
 	void save(int index) const {
 		// Constrói o nome do arquivo com o índice do bucket
 		std::string filename = HASH_DIR + "/" + std::to_string(index) + ".bucket";
-		std::ofstream out_file(filename, std::ofstream::trunc);
+		std::ofstream out_bucket_file(filename);
 
-		if (!out_file.is_open()) {
+		if (!out_bucket_file.is_open()) {
 			std::cerr << "Não foi possível abrir o arquivo para escrita: " << filename << std::endl;
 			return;
 		}
 
 		// Escreve cada registro no arquivo do bucket
-		out_file << std::fixed << std::setprecision(2);
+		out_bucket_file << std::fixed << std::setprecision(2);
 
         // Escreve cada registro no arquivo do bucket
         for (const Order& order : records) {
-            out_file << order.id << ";" << order.value << ";" << order.year << std::endl;
+			out_bucket_file << order.id << ";" << order.value << ";" << order.year << std::endl;
         }
 	}
 };
@@ -108,7 +108,7 @@ private:
 		int old_depth = old_bucket->local_depth;
 		if (old_depth == global_depth) {
 			doubleDirectory();
-			out_file << "DUP_DIR:/" << global_depth << ",<" << global_depth << ">" << std::endl;
+			out_file << "DUP_DIR:/" << global_depth << "," << (old_bucket->local_depth + 1) << std::endl;
 		}
 		old_bucket->local_depth++;
 		Bucket* new_bucket = new Bucket(old_bucket->local_depth);
@@ -129,30 +129,6 @@ private:
 			}
 			else {
 				new_bucket->records.push_back(order);
-			}
-		}
-	}
-
-	void load(const std::string& directory_path) {
-		// Itera por todos os arquivos no diretório fornecido
-		for (const auto& entry : fs::directory_iterator(directory_path)) {
-			if (entry.path().extension() == ".bucket") {
-				std::ifstream bucket_file(entry.path());
-				std::string line;
-
-				// Lê cada linha do arquivo do bucket (representando um registro)
-				while (getline(bucket_file, line)) {
-					std::istringstream iss(line);
-					int pedido;
-					double valor;
-					int ano;
-
-					if (iss >> pedido >> valor >> ano) {
-						// Insere a chave primária (Pedido #) no hash
-						this->insert(pedido);
-						// Aqui você pode armazenar os valores e o ano também, dependendo da sua estrutura de bucket
-					}
-				}
 			}
 		}
 	}
@@ -185,11 +161,10 @@ public:
 			auto order = findOrderByYear(key);
 			if (order.year != 0) {
 				bucket->records.push_back(order);
+				directory[bucket_index]->save(bucket_index);
+				out_file << "INC:" << key << "/" << global_depth << "," << directory[bucket_index]->local_depth << std::endl;
 			}
 		}
-		directory[bucket_index]->save(bucket_index);
-
-		out_file << "INC:" << key << "/" << global_depth << "," << directory[bucket_index]->local_depth << std::endl;
 	}
 
 	void remove(int key) {
@@ -216,13 +191,16 @@ public:
 		}
 		std::cout << "Key " << key << " not found\n";
 	}
+	void finalLog() {
+		out_file << "P:/" << global_depth << std::endl;
+	}
 	void close() {
 		out_file.close();
 	}
 };
 
 // Função para processar as operações a partir do arquivo de entrada
-void processFile(const std::string& filename, ExtensibleHash& exhash) {
+void runFileInstructions(const std::string& filename, ExtensibleHash& exhash) {
 	std::ifstream file(filename);
 	std::string line;
 
@@ -255,11 +233,12 @@ void processFile(const std::string& filename, ExtensibleHash& exhash) {
 			}
 		}
 	}
+	exhash.finalLog();
 }
 
 int main() {
 	ExtensibleHash exhash(0);  // Profundidade global inicial de 0
-	processFile(IN_PATH, exhash);
+	runFileInstructions(IN_PATH, exhash);
 	exhash.close();
 	return 0;
 }
