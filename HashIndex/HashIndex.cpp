@@ -195,18 +195,22 @@ public:
 	void search(int key) {
 		int bucket_index = hash(key);
 		Bucket* bucket = directory[bucket_index];
-		for (auto order : bucket->records) {
+		int found_count = 0;
+
+		for (const auto& order : bucket->records) {
 			if (order.year == key) {
-				out_file << "BUS:" << key << "/1" << std::endl;
-				return;
+				found_count++;
 			}
 		}
-		std::cout << "Key " << key << " not found\n";
+
+		// Loga o resultado da busca no arquivo de saída
+		out_file << "BUS:" << key << "/" << found_count << std::endl;
 	}
-	void finalLog() {
+
+	void logGlobalDepth() {
 		out_file << "P:/" << global_depth << std::endl;
 	}
-	void close() {
+	void closeOutFile() {
 		out_file.close();
 	}
 };
@@ -245,12 +249,12 @@ void runFileInstructions(const std::string& filename, ExtensibleHash& exhash) {
 			}
 		}
 	}
-	exhash.finalLog();
+	exhash.logGlobalDepth();
+	exhash.closeOutFile();
 }
 
 int main() {
 	ExtensibleHash exhash(0);  // Profundidade global inicial de 0
 	runFileInstructions(IN_PATH, exhash);
-	exhash.close();
 	return 0;
 }
