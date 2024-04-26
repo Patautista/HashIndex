@@ -9,6 +9,7 @@
 namespace fs = std::filesystem;
 
 const std::string IN_PATH = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\in.txt";
+const std::string OUT_PATH = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\out.txt";
 const std::string HASH_DIR = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\hash_dir";
 const std::string CSV_PATH = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\compras.csv";
 
@@ -77,7 +78,7 @@ public:
 
         // Escreve cada registro no arquivo do bucket
         for (const Order& order : records) {
-            out_file << order.id << " " << order.value << " " << order.year << std::endl;
+            out_file << order.id << ";" << order.value << ";" << order.year << std::endl;
         }
 	}
 };
@@ -86,6 +87,7 @@ public:
 class ExtensibleHash {
 private:
 	int global_depth;
+	std::ofstream out_file;
 	std::vector<Bucket*> directory;
 
 	int hash(int key) {
@@ -106,6 +108,7 @@ private:
 		int old_depth = old_bucket->local_depth;
 		if (old_depth == global_depth) {
 			doubleDirectory();
+			out_file << "DUP_DIR:/" << global_depth << ",<" << global_depth << ">" << std::endl;
 		}
 		old_bucket->local_depth++;
 		Bucket* new_bucket = new Bucket(old_bucket->local_depth);
@@ -157,6 +160,14 @@ private:
 public:
 	ExtensibleHash(int depth) : global_depth(depth) {
 		int initial_buckets = 1 << depth;
+		out_file.open(OUT_PATH);
+		if (!out_file.is_open()) {
+			std::cerr << "Não foi possível criar o arquivo de saída out.txt." << std::endl;
+			exit(1);
+		}
+		// Escrever a profundidade global inicial
+		out_file << "PG:/" << global_depth << std::endl;
+
 		for (int i = 0; i < initial_buckets; i++) {
 			directory.push_back(new Bucket(depth));
 		}
@@ -177,6 +188,8 @@ public:
 			}
 		}
 		directory[bucket_index]->save(bucket_index);
+
+		out_file << "INC:" << key << "/" << global_depth << "," << directory[bucket_index]->local_depth << std::endl;
 	}
 
 	void remove(int key) {
@@ -185,10 +198,11 @@ public:
 		for (auto it = records.begin(); it != records.end(); it++) {
 			if ((*it).year == key) {
 				records.erase(it);
+				directory[bucket_index]->save(bucket_index);
+				out_file << "REM:" << key << "/1," << global_depth << "," << directory[bucket_index]->local_depth << std::endl;
 				return;
 			}
 		}
-		directory[bucket_index]->save(bucket_index);
 	}
 
 	void search(int key) {
@@ -196,11 +210,14 @@ public:
 		Bucket* bucket = directory[bucket_index];
 		for (auto order : bucket->records) {
 			if (order.year == key) {
-				std::cout << "Key " << key << " found in bucket " << bucket_index << "\n";
+				out_file << "BUS:" << key << "/1" << std::endl;
 				return;
 			}
 		}
 		std::cout << "Key " << key << " not found\n";
+	}
+	void close() {
+		out_file.close();
 	}
 };
 
@@ -243,6 +260,6 @@ void processFile(const std::string& filename, ExtensibleHash& exhash) {
 int main() {
 	ExtensibleHash exhash(0);  // Profundidade global inicial de 0
 	processFile(IN_PATH, exhash);
-
+	exhash.close();
 	return 0;
 }
