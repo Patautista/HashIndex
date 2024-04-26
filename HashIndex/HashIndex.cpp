@@ -3,6 +3,8 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <filesystem>
+namespace fs = std::filesystem;
 
 const std::string IN_PATH = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\in.txt";
 
@@ -57,6 +59,30 @@ private:
         for (int num : temp_records) {
             int new_index = hash(num);
             directory[new_index]->records.push_back(num);
+        }
+    }
+
+    void load(const std::string& directory_path) {
+        // Itera por todos os arquivos no diretório fornecido
+        for (const auto& entry : fs::directory_iterator(directory_path)) {
+            if (entry.path().extension() == ".bucket") {
+                std::ifstream bucket_file(entry.path());
+                std::string line;
+
+                // Lê cada linha do arquivo do bucket (representando um registro)
+                while (getline(bucket_file, line)) {
+                    std::istringstream iss(line);
+                    int pedido;
+                    double valor;
+                    int ano;
+
+                    if (iss >> pedido >> valor >> ano) {
+                        // Insere a chave primária (Pedido #) no hash
+                        this->insert(pedido);
+                        // Aqui você pode armazenar os valores e o ano também, dependendo da sua estrutura de bucket
+                    }
+                }
+            }
         }
     }
 
