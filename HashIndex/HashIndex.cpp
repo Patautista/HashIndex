@@ -7,22 +7,24 @@
 namespace fs = std::filesystem;
 
 const std::string IN_PATH = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\in.txt";
+const std::string HASH_DIR = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\hash_dir";
 
 class Order {
-public:
-	Order(int id, double value) : value(value), year(year) {}
-	int id;
-	double value;
-	int year;
+	public:
+		Order(int id, double value) : value(value), year(year) {}
+		int id;
+		double value;
+		int year;
 };
 
 // Classe que representa um bucket
 class Bucket {
 public:
 	int local_depth;
+	std::string filename;
 	std::vector<int> records;
 
-	Bucket(int depth) : local_depth(depth) {}
+	Bucket(int depth, std::string filename) : local_depth(depth), filename(filename) {}
 
 	bool isFull() {
 		return records.size() >= 3;  // Capacidade máxima do bucket é 3
@@ -58,10 +60,10 @@ private:
 		if (old_depth == global_depth) {
 			doubleDirectory();
 		}
-		Bucket* new_bucket = new Bucket(old_depth + 1);
+		std::vector<int> temp_records = old_bucket->records;
+		Bucket* new_bucket = new Bucket(old_depth + 1, HASH_DIR + "\\" + std::to_string(bucket_index) + ".bucket");
 		old_bucket->local_depth++;
 
-		std::vector<int> temp_records = old_bucket->records;
 		old_bucket->records.clear();
 
 		for (int num : temp_records) {
@@ -98,7 +100,7 @@ public:
 	ExtensibleHash(int depth) : global_depth(depth) {
 		int initial_buckets = 1 << depth;
 		for (int i = 0; i < initial_buckets; i++) {
-			directory.push_back(new Bucket(depth));
+			directory.push_back(new Bucket(depth, HASH_DIR + "\\" + std::to_string(i) + ".bucket"));
 		}
 	}
 
