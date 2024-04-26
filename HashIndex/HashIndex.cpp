@@ -1,6 +1,10 @@
 #include <iostream>
 #include <vector>
 #include <string>
+#include <fstream>
+#include <sstream>
+
+const std::string IN_PATH = "C:\\Users\\caleb\\source\\repos\\HashIndex\\HashIndex\\in.txt";
 
 // Classe que representa um bucket
 class Bucket {
@@ -100,17 +104,45 @@ public:
     }
 };
 
-int main() {
-    ExtensibleHash exhash(2);  // Inicializa com profundidade global 2
+// Função para processar as operações a partir do arquivo de entrada
+void processFile(const std::string& filename, ExtensibleHash& exhash) {
+    std::ifstream file(filename);
+    std::string line;
 
-    // Demonstração de inserção, busca e remoção
-    exhash.insert(10);
-    exhash.insert(20);
-    exhash.insert(30);
-    exhash.insert(40);
-    exhash.search(10);
-    exhash.remove(10);
-    exhash.search(10);
+    // Lê a primeira linha para configurar a profundidade global
+    if (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string token;
+        if (std::getline(iss, token, '/')) {  // Ignora 'PG'
+            if (std::getline(iss, token)) {
+                int global_depth = std::stoi(token);
+                exhash = ExtensibleHash(global_depth);
+            }
+        }
+    }
+
+    // Processa cada instrução do arquivo
+    while (std::getline(file, line)) {
+        std::istringstream iss(line);
+        std::string command, value_str;
+        if (std::getline(iss, command, ':') && std::getline(iss, value_str)) {
+            int value = std::stoi(value_str);
+            if (command == "INC") {
+                exhash.insert(value);
+            }
+            else if (command == "REM") {
+                exhash.remove(value);
+            }
+            else if (command == "BUS") {
+                exhash.search(value);
+            }
+        }
+    }
+}
+
+int main() {
+    ExtensibleHash exhash(0);  // Profundidade global inicial de 0
+    processFile(IN_PATH, exhash);
 
     return 0;
 }
