@@ -124,7 +124,7 @@ private:
 		old_bucket->records.clear();
 
 		for (const Order& order : temp_records) {
-			if (hash(order.id) == bucket_index) {
+			if (hash(order.year) == bucket_index) {
 				old_bucket->records.push_back(order);
 			}
 			else {
@@ -170,14 +170,26 @@ public:
 	void remove(int key) {
 		int bucket_index = hash(key);
 		auto& records = directory[bucket_index]->records;
-		for (auto it = records.begin(); it != records.end(); it++) {
-			if ((*it).year == key) {
-				records.erase(it);
-				directory[bucket_index]->save(bucket_index);
-				out_file << "REM:" << key << "/1," << global_depth << "," << directory[bucket_index]->local_depth << std::endl;
-				return;
+		int removed_count = 0;
+
+		for (auto it = records.begin(); it != records.end();) {
+			if (it->year == key) {
+				it = records.erase(it);
+				removed_count++;
+				// Não incrementamos o iterador aqui, pois erase já retorna o próximo iterador
+			}
+			else {
+				++it; // Incrementamos o iterador apenas se nenhum elemento for apagado
 			}
 		}
+
+		// Atualiza o bucket no arquivo, se registros forem removidos
+		if (removed_count > 0) {
+			directory[bucket_index]->save(bucket_index);
+		}
+
+		// Escreve a operação de remoção no arquivo de saída
+		out_file << "REM:" << key << "/" << removed_count << "," << global_depth << "," << directory[bucket_index]->local_depth << std::endl;
 	}
 
 	void search(int key) {
